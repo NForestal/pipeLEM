@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Source tutorial clean functions
+. $WM_PROJECT_DIR/bin/tools/CleanFunctions
+
+cleanCase
+\rm -rf logs history postProcessing sets
+\rm -rf *.foam residuals system/fvSchemes.gz
+
+rm -r 0
+cp -r 0.orig 0
+
+touch ${PWD##*/}.foam

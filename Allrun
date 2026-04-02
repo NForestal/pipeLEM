@@ -1,0 +1,29 @@
+#!/bin/bash
+
+export CORE=${1}
+
+# Create case 
+touch ${PWD##*/}.foam
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# Create fluid mesh
+runApplication blockMesh
+#runApplication changeDictionary 
+runApplication checkMesh
+runApplication potentialFoam -writep
+
+if [[ "$CORE" -gt 1 ]]
+then
+	# Run parallel
+	runApplication decomposePar
+	runApplication renumberMesh -overwrite
+	runParallel solids4Foam $CORE
+	#runApplication reconstructPar
+	#rm -r processor*
+else
+	# Run serial
+	runApplication renumberMesh -overwrite
+	runApplication solids4Foam
+fi

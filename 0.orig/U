@@ -1,0 +1,128 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | foam-extend: Open Source CFD                    |
+|  \\    /   O peration     | Version:     3.2                                |
+|   \\  /    A nd           | Web:         http://www.foam-extend.org         |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (0 0 0);
+
+boundaryField
+{
+    inlet
+    {
+   	type            fixedValue;
+    	value           #codeStream
+    {
+        codeInclude
+        #{
+            #include "fvCFD.H"
+            #include "IOstreams.H"
+            #include <cmath>
+        #};
+
+        codeOptions
+        #{
+            -I$(LIB_SRC)/finiteVolume/lnInclude \
+            -I$(LIB_SRC)/meshTools/lnInclude
+        #};
+
+        codeLibs
+        #{
+            -lmeshTools \
+            -lfiniteVolume
+        #};
+
+        code
+        #{
+            // Access the mesh and patch information
+            const IOdictionary& d = static_cast<const IOdictionary&>(dict.parent().parent());
+            const fvMesh& mesh = refCast<const fvMesh>(d.db());
+            const label id = mesh.boundary().findPatchID("inlet");
+            const fvPatch& patch = mesh.boundary()[id];
+
+            vectorField centerFace = patch.Cf(); // Face centers
+            vectorField normalField = patch.nf(); // Normals
+            scalar patchArea = gSum(patch.magSf()); // Total surface area
+            
+            // Load external variables dictionary from constant directory
+            const IOdictionary varsDict(
+                IOobject(
+                    "variablesDict",     // The name of the dictionary
+                    "constant",          // Location in the case directory
+                    mesh,                // Associated database (the mesh for context)
+                    IOobject::MUST_READ, // Ensures it must be read or throws an error
+                    IOobject::AUTO_WRITE // Writes if the object is modified
+                )
+            );        
+            ITstream& stream = varsDict.lookup("Umax");
+            scalar Umax;
+            stream >> Umax;
+
+            // Initialize the velocity vector field
+            vectorField V(patch.size(), vector(0, 0, 0));
+
+            // Define maximum velocity and calculate radius
+            const scalar pi = M_PI;
+            const scalar R = sqrt(patchArea / pi); // Calculate radius from area
+
+            // Initialize variables for bounds
+            scalar Xmin = centerFace[0][0], Ymin = centerFace[0][1], Zmin = centerFace[0][2];
+            scalar Xmax = Xmin, Ymax = Ymin, Zmax = Zmin;
+
+            // Calculate min and max coordinates
+            forAll(patch, i)
+            {
+                Xmin = std::min(Xmin, centerFace[i][0]);
+                Xmax = std::max(Xmax, centerFace[i][0]);
+                Ymin = std::min(Ymin, centerFace[i][1]);
+                Ymax = std::max(Ymax, centerFace[i][1]);
+                Zmin = std::min(Zmin, centerFace[i][2]);
+                Zmax = std::max(Zmax, centerFace[i][2]);
+            }
+
+            // Calculate center of the patch
+            vector C((Xmax + Xmin) / 2, (Ymax + Ymin) / 2, (Zmax + Zmin) / 2);
+
+            // Set velocity vector field with parabolic profile
+            forAll(V, i)
+            {
+                const scalar x = centerFace[i][0];
+                const scalar y = centerFace[i][1];
+                const scalar z = centerFace[i][2];
+                vector M(x, y, z);
+                vector Mcorr = M - C; // Corrected position
+                scalar r = mag(Mcorr); // Distance from center
+
+                // Parabolic velocity profile
+                const scalar parabolic = 1 - pow(r / R, 2);
+                V[i] = (r <= R) ? - Umax * parabolic * normalField[i] : vector(0, 0, 0); // Zero outside radius
+            }
+
+            V.writeEntry("", os); // Output the velocity field
+        #};
+    };
+    }
+    outlet
+    {
+        type		zeroGradient;
+    }
+    interface
+    {
+        type		fixedValue;
+	value		uniform ( 0 0 0 );
+    }
+}
+
+// ************************************************************************* //

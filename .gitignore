@@ -1,0 +1,96 @@
+# =========================
+# OpenFOAM Case Structure
+# =========================
+
+# Ignore time directories (simulation results)
+[0-9]*/
+
+# Keep initial condition and backup
+!0/
+!0.orig/
+
+# Compilation code directories
+dynamicCode/
+
+# Processor directories (parallel runs)
+processor*/
+processors*/
+
+# Post-processing results
+postProcessing/
+
+# Mesh data (can be regenerated)
+constant/polyMesh/
+!constant/polyMesh/blockMeshDict
+!constant/polyMesh/boundary
+
+# Dynamic mesh / refinement
+constant/dynamicMeshDict
+constant/refinementHistory
+
+# =========================
+# Logs and Output Files
+# =========================
+
+log.*
+*.log
+*.out
+*.err
+
+# Residuals, probes, etc.
+residuals*
+forces*
+probes*
+
+# =========================
+# Temporary / Cache Files
+# =========================
+
+*~
+*.swp
+*.bak
+*.tmp
+
+# ParaView / visualization
+*.OpenFOAM
+*.foam
+*.vtk
+
+# =========================
+# Build / Compilation Files
+# =========================
+
+# OpenFOAM compilation directories
+Make/linux*
+Make/*/linux*
+
+# Object and dependency files
+*.o
+*.dep
+
+# Executables
+*.exe
+
+# =========================
+# Python / Jupyter (if used)
+# =========================
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# =========================
+# System Files
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# Optional: Large Data
+# =========================
+
+# Uncomment if you want to ignore large datasets
+# *.dat
+# *.csv
+# *.h5

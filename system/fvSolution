@@ -1,0 +1,115 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | foam-extend: Open Source CFD                    |
+|  \\    /   O peration     | Version:     3.2                                |
+|   \\  /    A nd           | Web:         http://www.foam-extend.org         |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    "p|pFinal"
+    {
+	solver          GAMG;
+        tolerance       1e-09;
+        relTol          0;
+        minIter         1;
+        maxIter         1000;
+        smoother        GaussSeidel;
+        nPreSweeps      0;
+        nPostSweeps     2;
+        nFinestSweeps   2;
+        scaleCorrection true;
+        directSolveCoarsest false;
+        cacheAgglomeration true;
+        nCellsInCoarsestLevel 20;
+        agglomerator    faceAreaPair;
+        mergeLevels     1;
+    };
+
+    "U|UFinal"
+    {
+        solver          PBiCG;
+        preconditioner  DILU;
+        tolerance       1e-07;
+        relTol          0;
+	minIter		1;
+    };
+
+    "Phi"
+    {
+        solver           GAMG;
+        smoother	 DIC;
+        tolerance        1e-06;
+        relTol           0;
+    };
+}
+
+PISO
+{
+    nCorrectors 3;
+    nNonOrthogonalCorrectors 1;
+}
+
+SIMPLE
+{
+    nNonOrthogonalCorrectors  1;
+    //pRefPoint                 (0 0 0.5);
+    //pRefValue                 0;
+
+    residualControl
+    {
+         p                       1e-9;
+         U                       1e-9;
+         //etc.
+    }
+}
+
+PIMPLE
+{
+    nCorrectors 3;
+    nOuterCorrectors 100;
+    nNonOrthogonalCorrectors 1;
+    //tolerance 1.0e-14;
+    //relTol 5e-3;
+    //consistent  true;
+    //correctPhi  true;
+    //momentumPredictor true;
+
+    residualControl
+    {
+    	U
+        {
+                tolerance  1e-6;
+                relTol      0;
+        }
+        p
+        {
+                tolerance  1e-6;
+                relTol      0;
+        }
+    }
+}
+
+relaxationFactors
+{
+    equations
+    {
+        U 0.4;
+        UFinal 1;
+    }
+    fields
+    {
+        p 0.4;
+    }
+}
+
+// ************************************************************************* //
