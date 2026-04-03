@@ -1,8 +1,8 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
-| \\      /  F ield         | foam-extend: Open Source CFD                    |
-|  \\    /   O peration     | Version:     3.2                                |
-|   \\  /    A nd           | Web:         http://www.foam-extend.org         |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2506                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com 	              |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
@@ -22,9 +22,11 @@ boundaryField
 {
     inlet
     {
-   	type            fixedValue;
-    	value           #codeStream
-    {
+   	type            codedFixedValue;
+    	uniformValue	uniform (0 0 0);
+    	
+    	name		parabolicOscillation;
+    	
         codeInclude
         #{
             #include "fvCFD.H"
@@ -46,32 +48,30 @@ boundaryField
 
         code
         #{
-            // Access the mesh and patch information
-            const IOdictionary& d = static_cast<const IOdictionary&>(dict.parent().parent());
-            const fvMesh& mesh = refCast<const fvMesh>(d.db());
-            const label id = mesh.boundary().findPatchID("inlet");
-            const fvPatch& patch = mesh.boundary()[id];
-
-            vectorField centerFace = patch.Cf(); // Face centers
-            vectorField normalField = patch.nf(); // Normals
-            scalar patchArea = gSum(patch.magSf()); // Total surface area
+            // Access the mesh and patch informations
+            const fvMesh& mesh = refCast<const fvMesh>(this->db());
+            const fvPatch& boundaryPatch = patch();
+            
+            scalar t = this->db().time().value();		// Time
+            vectorField centerFace = boundaryPatch.Cf();	// Face centers
+            vectorField normalField = boundaryPatch.nf();	// Normals
+            scalar patchArea = gSum(boundaryPatch.magSf());	// Total surface area
             
             // Load external variables dictionary from constant directory
             const IOdictionary varsDict(
                 IOobject(
-                    "variablesDict",     // The name of the dictionary
-                    "constant",          // Location in the case directory
-                    mesh,                // Associated database (the mesh for context)
-                    IOobject::MUST_READ, // Ensures it must be read or throws an error
-                    IOobject::AUTO_WRITE // Writes if the object is modified
+                    "variablesDict",     		// The name of the dictionary
+                    "constant",          		// Location in the case directory
+                    mesh,                		// Associated database (the mesh for context)
+                    IOobject::MUST_READ, 		// Ensures it must be read or throws an error
+                    IOobject::NO_WRITE	 		// Writes if the object is modified
                 )
             );        
-            ITstream& stream = varsDict.lookup("Umax");
-            scalar Umax;
-            stream >> Umax;
+            scalar Umax = readScalar(varsDict.lookup("Umax"));
 
             // Initialize the velocity vector field
-            vectorField V(patch.size(), vector(0, 0, 0));
+            operator==(vectorField(patch().size(), vector::zero));
+            vectorField& V = *this;
 
             // Define maximum velocity and calculate radius
             const scalar pi = M_PI;
@@ -82,7 +82,7 @@ boundaryField
             scalar Xmax = Xmin, Ymax = Ymin, Zmax = Zmin;
 
             // Calculate min and max coordinates
-            forAll(patch, i)
+            forAll(boundaryPatch, i)
             {
                 Xmin = std::min(Xmin, centerFace[i][0]);
                 Xmax = std::max(Xmax, centerFace[i][0]);
@@ -96,7 +96,7 @@ boundaryField
             vector C((Xmax + Xmin) / 2, (Ymax + Ymin) / 2, (Zmax + Zmin) / 2);
 
             // Set velocity vector field with parabolic profile
-            forAll(V, i)
+            forAll(V, i) 
             {
                 const scalar x = centerFace[i][0];
                 const scalar y = centerFace[i][1];
@@ -107,12 +107,15 @@ boundaryField
 
                 // Parabolic velocity profile
                 const scalar parabolic = 1 - pow(r / R, 2);
-                V[i] = (r <= R) ? - Umax * parabolic * normalField[i] : vector(0, 0, 0); // Zero outside radius
+                V[i] = (r <= R)? - Umax * parabolic * normalField[i] : vector(0, 0, 0); // Zero outside radius
+                
+                // Adding pulse at time t0
+                /*if (t > 0.125) 
+                {
+                   V[i] += (0.1 * V[i]) * sin(10*pi*t-0.125);
+                }*/
             }
-
-            V.writeEntry("", os); // Output the velocity field
         #};
-    };
     }
     outlet
     {
