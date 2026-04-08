@@ -62,14 +62,11 @@ PISO
 SIMPLE
 {
     nNonOrthogonalCorrectors  1;
-    //pRefPoint                 (0 0 0.5);
-    //pRefValue                 0;
 
     residualControl
     {
          p                       1e-9;
          U                       1e-9;
-         //etc.
     }
 }
 
@@ -78,11 +75,6 @@ PIMPLE
     nCorrectors 3;
     nOuterCorrectors 100;
     nNonOrthogonalCorrectors 1;
-    //tolerance 1.0e-14;
-    //relTol 5e-3;
-    //consistent  true;
-    //correctPhi  true;
-    //momentumPredictor true;
 
     residualControl
     {
