@@ -16,7 +16,7 @@ FoamFile
 
 scale 1;
 
-Radius	1;					//Rayon / Coordonnées xy positives
+Radius	0.5;					//Rayon / Coordonnées xy positives
 L	50;					//Longueur / hauteur du tube
 Nx	10;					//Nombre d'éléments d'un coté du carré central
 Ny	5;					//Nombre d'éléments dans la couche limite

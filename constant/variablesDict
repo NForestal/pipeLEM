@@ -16,7 +16,7 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 Umax		1.0e-4;  // Inlet Velocity Peak
-beta		0.95;	// Main Flow Rate Ratio
+Resistor	0;	// Main Flow Rate Ratio
 
 
 // ************************************************************************* //

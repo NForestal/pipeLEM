@@ -22,14 +22,82 @@ boundaryField
 {
     inlet
     {
-	type		zeroGradient;
-	//type		fixedValue;
-	//value		uniform 1.e-6;
+	//type		zeroGradient;
+	type		fixedValue;
+	value		uniform 1.0e-6;
     }
     outlet
     {
-	type		fixedValue;
-	value		uniform 0;
+	type            codedFixedValue;
+        uniformValue    uniform 0;
+
+        name            OhmLaw;
+
+        codeInclude
+        #{
+            #include "fvCFD.H"
+            #include "IOstreams.H"
+            #include <cmath>
+        #};
+
+        codeOptions
+        #{
+            -I$(LIB_SRC)/finiteVolume/lnInclude \
+            -I$(LIB_SRC)/meshTools/lnInclude
+        #};
+
+        codeLibs
+        #{
+            -lmeshTools \
+            -lfiniteVolume
+        #};
+        
+        code
+        #{
+            
+            // Access the mesh and patch informations
+            const fvMesh& mesh = refCast<const fvMesh>(this->db());
+            const fvPatch& boundaryPatch = patch();
+            
+            // Initialize the pressure field
+            operator==(scalarField(patch().size(), 0.0));
+            scalarField& p = *this;
+            
+            //scalar t = this->db().time().value();		// Time
+            if (!mesh.foundObject<surfaceScalarField>("phi"))
+            {
+               Info << "phi not found, setting p = 0" << endl;
+               return;
+            } 
+            else
+            {
+               // Access velocity field
+               const surfaceScalarField& phi = mesh.lookupObject<surfaceScalarField>("phi");
+               const fvsPatchField phiPatch = phi.boundaryField()[boundaryPatch.index()];
+               
+               // Access transportProperties dictionary
+               const IOdictionary& transportProperties = mesh.lookupObject<IOdictionary>("transportProperties");   
+               dimensionedScalar rhoDim("rho", transportProperties);
+               scalar rho = rhoDim.value();
+               
+               // Load external variables dictionary from constant directory
+               const IOdictionary varsDict(
+                   IOobject(
+                       "variablesDict",                    // The name of the dictionary
+                       "constant",                         // Location in the case directory
+                       mesh,                               // Associated database (the mesh for context)
+                       IOobject::MUST_READ,                // Ensures it must be read or throws an error
+                       IOobject::NO_WRITE                  // Writes if the object is modified
+                   )
+               );
+               scalar Resistor = readScalar(varsDict.lookup("Resistor"));
+               
+               // Calculate the flow rate
+               scalar Q = gSum(phiPatch);
+               
+               p = (Resistor * Q) / rho;
+            } 
+        #};
     }
     interface
     {

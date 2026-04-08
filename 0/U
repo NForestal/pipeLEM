@@ -22,7 +22,8 @@ boundaryField
 {
     inlet
     {
-   	type            codedFixedValue;
+   	type		zeroGradient;
+   	/*type            codedFixedValue;
     	uniformValue	uniform (0 0 0);
     	
     	name		parabolicOscillation;
@@ -52,7 +53,7 @@ boundaryField
             const fvMesh& mesh = refCast<const fvMesh>(this->db());
             const fvPatch& boundaryPatch = patch();
             
-            scalar t = this->db().time().value();		// Time
+            //scalar t = this->db().time().value();		// Time
             vectorField centerFace = boundaryPatch.Cf();	// Face centers
             vectorField normalField = boundaryPatch.nf();	// Normals
             scalar patchArea = gSum(boundaryPatch.magSf());	// Total surface area
@@ -108,12 +109,14 @@ boundaryField
                 // Parabolic velocity profile
                 const scalar parabolic = 1 - pow(r / R, 2);
                 V[i] = (r <= R)? - Umax * parabolic * normalField[i] : vector(0, 0, 0); // Zero outside radius
-                if (t > 0.125) 
+                
+                // Adding pulse at time t0
+                /*if (t > 0.125) 
                 {
                    V[i] += (0.1 * V[i]) * sin(10*pi*t-0.125);
-                }
-            }
-        #};
+                }*/
+          //  }
+        //#};
     }
     outlet
     {
