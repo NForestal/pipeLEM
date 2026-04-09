@@ -15,8 +15,9 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-Umax		1.0e-4;  // Inlet Velocity Peak
-Resistor	0;	// Main Flow Rate Ratio
+Umax		1.0e-4;	// Inlet Velocity Peak
+Resistor	2;	// Hydrolic resistance value 
+Capacitor	8e-2;	// Compliance value
 
 
 // ************************************************************************* //

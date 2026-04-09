@@ -22,14 +22,36 @@ boundaryField
 {
     inlet
     {
-	//type		zeroGradient;
-	type		fixedValue;
-	value		uniform 1.0e-6;
+	type            codedFixedValue;
+        value    uniform 0;
+        name            delayPulse;
+        codeInclude	#{
+            #include "fvCFD.H"
+            #include "IOstreams.H"
+            #include <cmath>
+        #};
+        code		#{
+            // Initialize the pressure field
+            operator==(scalarField(patch().size(), 0.0));
+            scalarField& p = *this;
+            
+            scalar t = this->db().time().value();		// Time
+            scalar pi = M_PI;
+            p = (t <= 1.0)? 1.0e-6 : 1.0e-6 * (1 + 0.2 * sin(2*pi*(t-1.0)));
+        #};
+        codeOptions	#{
+            -I$(LIB_SRC)/finiteVolume/lnInclude \
+            -I$(LIB_SRC)/meshTools/lnInclude
+        #};
+        codeLibs	#{
+            -lmeshTools \
+            -lfiniteVolume
+        #};
     }
     outlet
     {
 	type            codedFixedValue;
-        uniformValue    uniform 0;
+        value    	uniform 0;
         name            OhmLaw;
         codeInclude	#{
             #include "fvCFD.H"
@@ -44,10 +66,14 @@ boundaryField
             operator==(scalarField(patch().size(), 0.0));
             scalarField& p = *this;
             
-            //scalar t = this->db().time().value();		// Time
+            // Get the time step
+            scalar dt = this->db().time().deltaTValue();
+            
+            static scalar pOld;				// Create a storage for pressure(t-1)
+            
             if (!mesh.foundObject<surfaceScalarField>("phi")) {
                Info << "phi not found, setting p = 0" << endl;
-               return;
+               pOld = 0;
             } 
             else {
                // Access velocity field
@@ -62,19 +88,25 @@ boundaryField
                // Load external variables dictionary from constant directory
                const IOdictionary varsDict(
                    IOobject(
-                       "variablesDict",                    // The name of the dictionary
-                       "constant",                         // Location in the case directory
-                       mesh,                               // Associated database (the mesh for context)
-                       IOobject::MUST_READ,                // Ensures it must be read or throws an error
-                       IOobject::NO_WRITE                  // Writes if the object is modified
+                       "variablesDict",			// The name of the dictionary
+                       "constant",			// Location in the case directory
+                       mesh,				// Associated database (the mesh for context)
+                       IOobject::MUST_READ,		// Ensures it must be read or throws an error
+                       IOobject::NO_WRITE		// Writes if the object is modified
                    )
                );
-               scalar Resistor = readScalar(varsDict.lookup("Resistor"));
+               scalar Res = readScalar(varsDict.lookup("Resistor"));
+               scalar Cap = readScalar(varsDict.lookup("Capacitor"));
+               scalar tau = Res * Cap;			// Get time constant
                
                // Calculate the flow rate
                scalar Q = gSum(phiPatch);
                
-               p = (Resistor * Q) / rho;
+               // Time integration (Euler forward)
+               scalar pNew = pOld * (1- dt/tau) + (Q * dt) / (Cap * rho);
+               
+               p = (scalarField(patch().size(), pNew));	// Apply pressure at boundary
+               pOld = pNew;				// Store previous pressure
             } 
         #};
         codeOptions	#{
