@@ -9,6 +9,9 @@
 !0/
 !0.orig/
 
+# Ignore compressed data in intial condition
+0/*.gz
+
 # Compilation code directories
 dynamicCode/
 

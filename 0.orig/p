@@ -30,31 +30,12 @@ boundaryField
     {
 	type            codedFixedValue;
         uniformValue    uniform 0;
-
         name            OhmLaw;
-
-        codeInclude
-        #{
+        codeInclude	#{
             #include "fvCFD.H"
             #include "IOstreams.H"
-            #include <cmath>
         #};
-
-        codeOptions
-        #{
-            -I$(LIB_SRC)/finiteVolume/lnInclude \
-            -I$(LIB_SRC)/meshTools/lnInclude
-        #};
-
-        codeLibs
-        #{
-            -lmeshTools \
-            -lfiniteVolume
-        #};
-        
-        code
-        #{
-            
+        code		#{
             // Access the mesh and patch informations
             const fvMesh& mesh = refCast<const fvMesh>(this->db());
             const fvPatch& boundaryPatch = patch();
@@ -64,13 +45,11 @@ boundaryField
             scalarField& p = *this;
             
             //scalar t = this->db().time().value();		// Time
-            if (!mesh.foundObject<surfaceScalarField>("phi"))
-            {
+            if (!mesh.foundObject<surfaceScalarField>("phi")) {
                Info << "phi not found, setting p = 0" << endl;
                return;
             } 
-            else
-            {
+            else {
                // Access velocity field
                const surfaceScalarField& phi = mesh.lookupObject<surfaceScalarField>("phi");
                const fvsPatchField phiPatch = phi.boundaryField()[boundaryPatch.index()];
@@ -97,6 +76,14 @@ boundaryField
                
                p = (Resistor * Q) / rho;
             } 
+        #};
+        codeOptions	#{
+            -I$(LIB_SRC)/finiteVolume/lnInclude \
+            -I$(LIB_SRC)/meshTools/lnInclude
+        #};
+        codeLibs	#{
+            -lmeshTools \
+            -lfiniteVolume
         #};
     }
     interface

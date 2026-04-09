@@ -12,18 +12,17 @@ touch ${PWD##*/}.foam
 runApplication blockMesh
 #runApplication changeDictionary 
 runApplication checkMesh
-runApplication potentialFoam -writep
+runApplication renumberMesh -overwrite
+#runApplication potentialFoam -writep
 
 if [[ "$CORE" -gt 1 ]]
 then
 	# Run parallel
 	runApplication decomposePar
-	runApplication renumberMesh -overwrite
-	runParallel solids4Foam $CORE
+	runParallel $(getApplication)
 	#runApplication reconstructPar
 	#rm -r processor*
 else
 	# Run serial
-	runApplication renumberMesh -overwrite
-	runApplication solids4Foam
+	runApplication $(getApplication)
 fi
