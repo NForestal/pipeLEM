@@ -103,7 +103,7 @@ boundaryField
                scalar Q = gSum(phiPatch);
                
                // Time integration (Euler forward)
-               scalar pNew = pOld * (1- dt/tau) + (Q * dt) / (Cap * rho);
+               scalar pNew = (pOld + (Q * dt) / (Cap * rho)) * tau / (tau + dt);
                
                p = (scalarField(patch().size(), pNew));	// Apply pressure at boundary
                pOld = pNew;				// Store previous pressure
