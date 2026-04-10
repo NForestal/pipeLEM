@@ -56,6 +56,11 @@ boundaryField
         codeInclude	#{
             #include "fvCFD.H"
             #include "IOstreams.H"
+            
+            // Define the slope of the ODE
+            inline scalar dp (scalar Qt, scalar pt, scalar C, scalar tau) {
+               return Qt/C - pt/tau;
+            }
         #};
         code		#{
             // Access the mesh and patch informations
@@ -66,7 +71,7 @@ boundaryField
             operator==(scalarField(patch().size(), 0.0));
             scalarField& p = *this;
             
-            // Get the time step
+            // Get the time and time step
             scalar dt = this->db().time().deltaTValue();
             
             static scalar pOld;				// Create a storage for pressure(t-1)
@@ -100,10 +105,16 @@ boundaryField
                scalar tau = Res * Cap;			// Get time constant
                
                // Calculate the flow rate
-               scalar Q = gSum(phiPatch);
+               scalar Q = gSum(phiPatch) / rho;
                
-               // Time integration (Euler forward)
-               scalar pNew = (pOld + (Q * dt) / (Cap * rho)) * tau / (tau + dt);
+               // Get the Runge-Kutta slope
+               scalar k1 = dp(Q, pOld, Cap, tau);
+               scalar k2 = dp(Q, pOld + dt * k1/2, Cap, tau);
+               scalar k3 = dp(Q, pOld + dt * k2/2, Cap, tau);
+               scalar k4 = dp(Q, pOld + dt * k3, Cap, tau);
+               
+               // Time integration (Runge-Kutta)
+               scalar pNew = pOld + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6;
                
                p = (scalarField(patch().size(), pNew));	// Apply pressure at boundary
                pOld = pNew;				// Store previous pressure
