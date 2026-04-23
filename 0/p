@@ -37,7 +37,8 @@ boundaryField
             
             scalar t = this->db().time().value();		// Time
             scalar pi = M_PI;
-            p = (t <= 1.0)? 1.0e-6 : 1.0e-6 * (1 + 0.2 * sin(2*pi*(t-1.0)));
+            scalar p0 = 1.0e-6;
+            p = (t <= 1.0)? p0 : p0 * (1 + 0.2 * sin(2*pi*(t-1.0)));
         #};
         codeOptions	#{
             -I$(LIB_SRC)/finiteVolume/lnInclude \
@@ -56,10 +57,11 @@ boundaryField
         codeInclude	#{
             #include "fvCFD.H"
             #include "IOstreams.H"
+            #include <vector>
             
             // Define the slope of the ODE
-            inline scalar dp (scalar Qt, scalar pt, scalar C, scalar tau) {
-               return Qt/C - pt/tau;
+            inline scalar dp (scalar Qt, scalar dQ, scalar pt, scalar R1, scalar R2, scalar tau) {
+               return R1*dQ + Qt*((R1 + R2)/tau) - pt/tau;
             }
         #};
         code		#{
@@ -74,8 +76,11 @@ boundaryField
             // Get the time and time step
             scalar dt = this->db().time().deltaTValue();
             
-            static scalar pOld;				// Create a storage for pressure(t-1)
+            // Create Storages
+            static scalar pOld;					// Create a storage for pressure(t-1)
+            static std::vector<scalar> QStore = {0, 0, 0};	// Create a storage for flow rate last time steps
             
+            // Skip First time step
             if (!mesh.foundObject<surfaceScalarField>("phi")) {
                Info << "phi not found, setting p = 0" << endl;
                pOld = 0;
@@ -100,24 +105,38 @@ boundaryField
                        IOobject::NO_WRITE		// Writes if the object is modified
                    )
                );
-               scalar Res = readScalar(varsDict.lookup("Resistor"));
+               scalar Res1 = readScalar(varsDict.lookup("Impedance"));
+               scalar Res2 = readScalar(varsDict.lookup("Resistor"));
                scalar Cap = readScalar(varsDict.lookup("Capacitor"));
-               scalar tau = Res * Cap;			// Get time constant
+               scalar tau = Res2 * Cap;			// Get time constant
                
-               // Calculate the flow rate
+               // Get the flow rate
                scalar Q = gSum(phiPatch) / rho;
+               if (QStore.back() != Q) {
+                  QStore.push_back(Q);
+               }
+               // Get flow rate variation
+               scalar dQ = (QStore[QStore.size()-2] - QStore.back()) / dt;
                
                // Get the Runge-Kutta slope
-               scalar k1 = dp(Q, pOld, Cap, tau);
-               scalar k2 = dp(Q, pOld + dt * k1/2, Cap, tau);
-               scalar k3 = dp(Q, pOld + dt * k2/2, Cap, tau);
-               scalar k4 = dp(Q, pOld + dt * k3, Cap, tau);
+               scalar k1 = dp(Q, dQ, pOld, Res1, Res2, tau);
+               scalar k2 = dp(Q, dQ, pOld + dt * k1/2, Res1, Res2, tau);
+               scalar k3 = dp(Q, dQ, pOld + dt * k2/2, Res1, Res2, tau);
+               scalar k4 = dp(Q, dQ, pOld + dt * k3, Res1, Res2, tau);
                
                // Time integration (Runge-Kutta)
                scalar pNew = pOld + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6;
                
-               p = (scalarField(patch().size(), pNew));	// Apply pressure at boundary
-               pOld = pNew;				// Store previous pressure
+               // Apply pressure at boundary
+               p = (scalarField(patch().size(), pNew));
+               
+               // Store previous pressure
+               pOld = pNew;	
+               
+               // Purge flow rate storage
+               if (QStore.size() > 3) {
+                  QStore.erase(QStore.begin());
+               }
             } 
         #};
         codeOptions	#{
