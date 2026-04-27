@@ -15,7 +15,8 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-Umax		1.0e-4;	// Inlet Velocity Peak
+Umax		6.0e-4;	// Inlet Velocity Peak
+Frequency	1.0;	// Heart beat
 Resistor	2;	// Peripheral Resistance value 
 Capacitor	8e-2;	// Total Arterial Compliance value
 Impedance	0.9;	// Characteristic Impedance value

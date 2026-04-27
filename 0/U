@@ -22,17 +22,29 @@ boundaryField
 {
     inlet
     {
-   	type		zeroGradient;
-   	/*type            codedFixedValue;
+   	type            codedFixedValue;
     	uniformValue	uniform (0 0 0);
     	
-    	name		parabolicOscillation;
+    	name		Womersley;
     	
         codeInclude
         #{
             #include "fvCFD.H"
             #include "IOstreams.H"
             #include <cmath>
+            #include <complex>
+            
+            inline std::complex<double> J0(std::complex<double> z) {
+               std::complex<double> sum = 1.0;
+               std::complex<double> term = 1.0;
+               for (int k = 1; k < 20; k++) {
+                  term *= - (z*z) / (4.0 * k * k);
+                  sum += term;
+                  
+                  if (std::abs(term) < 1e-12) break;
+               }
+               return sum;
+            }
         #};
 
         codeOptions
@@ -53,12 +65,22 @@ boundaryField
             const fvMesh& mesh = refCast<const fvMesh>(this->db());
             const fvPatch& boundaryPatch = patch();
             
-            //scalar t = this->db().time().value();		// Time
-            vectorField centerFace = boundaryPatch.Cf();	// Face centers
-            vectorField normalField = boundaryPatch.nf();	// Normals
-            scalar patchArea = gSum(boundaryPatch.magSf());	// Total surface area
+            // Initialize the velocity vector field
+            operator==(vectorField(patch().size(), vector::zero));
+            vectorField& V = *this;
             
-            // Load external variables dictionary from constant directory
+            // Access transportProperties dictionary and variables dictionary
+            const IOdictionary transProp(
+                IOobject(
+                    "transportProperties",     		// The name of the dictionary
+                    "constant",          		// Location in the case directory
+                    mesh,                		// Associated database (the mesh for context)
+                    IOobject::MUST_READ, 		// Ensures it must be read or throws an error
+                    IOobject::NO_WRITE	 		// Writes if the object is modified
+                )
+            ); 
+            dimensionedScalar nuDim("nu", transProp);   
+            
             const IOdictionary varsDict(
                 IOobject(
                     "variablesDict",     		// The name of the dictionary
@@ -67,18 +89,33 @@ boundaryField
                     IOobject::MUST_READ, 		// Ensures it must be read or throws an error
                     IOobject::NO_WRITE	 		// Writes if the object is modified
                 )
-            );        
-            scalar Umax = readScalar(varsDict.lookup("Umax"));
-
-            // Initialize the velocity vector field
-            operator==(vectorField(patch().size(), vector::zero));
-            vectorField& V = *this;
-
+            ); 
+            
+            // Get constants
+            const scalar nu = nuDim.value();       
+            const scalar Umax = readScalar(varsDict.lookup("Umax"));
+            const scalar freq = readScalar(varsDict.lookup("Frequency"));
+            
+            // Get the time and time step
+            scalar t = this->db().time().value();
+            
+            // Get boundary Patch Properties           
+            vectorField centerFace = boundaryPatch.Cf();	// Face centers
+            vectorField normalField = boundaryPatch.nf();	// Normals
+            scalar patchArea = gSum(boundaryPatch.magSf());	// Total surface area
+            
             // Define maximum velocity and calculate radius
+            const std::complex<double> i(0,1);
             const scalar pi = M_PI;
             const scalar R = sqrt(patchArea / pi); // Calculate radius from area
-
-            // Initialize variables for bounds
+            const scalar omega = 2.0 * pi * freq; 
+            
+            const scalar alpha = sqrt(omega / nu) * R;
+            const std::complex<double> lambda = std::complex<double>(1.0,-1.0) / sqrt(2.0) * alpha;
+            const std::complex<double> J0_lambda = J0(lambda);
+            const std::complex<double> phase = std::exp(i * omega * t);
+            
+            /*// Initialize variables for bounds
             scalar Xmin = centerFace[0][0], Ymin = centerFace[0][1], Zmin = centerFace[0][2];
             scalar Xmax = Xmin, Ymax = Ymin, Zmax = Zmin;
 
@@ -94,29 +131,35 @@ boundaryField
             }
 
             // Calculate center of the patch
-            vector C((Xmax + Xmin) / 2, (Ymax + Ymin) / 2, (Zmax + Zmin) / 2);
+            vector C((Xmax + Xmin) / 2, (Ymax + Ymin) / 2, (Zmax + Zmin) / 2);*/
+            const vector C = gAverage(centerFace);
 
             // Set velocity vector field with parabolic profile
             forAll(V, i) 
             {
-                const scalar x = centerFace[i][0];
+                /*const scalar x = centerFace[i][0];
                 const scalar y = centerFace[i][1];
-                const scalar z = centerFace[i][2];
-                vector M(x, y, z);
+                const scalar z = centerFace[i][2];*/
+                
+                // Get r position
+                const vector M = centerFace[i];
                 vector Mcorr = M - C; // Corrected position
                 scalar r = mag(Mcorr); // Distance from center
+                
+                std::complex<double> z = lambda * (r / R);
+                std::complex<double> iProfile = 1.0 - J0(z) / J0_lambda;
+                scalar profile = real(iProfile * phase);
 
                 // Parabolic velocity profile
-                const scalar parabolic = 1 - pow(r / R, 2);
-                V[i] = (r <= R)? - Umax * parabolic * normalField[i] : vector(0, 0, 0); // Zero outside radius
+                V[i] = (r < R)? - Umax * profile * normalField[i] : vector(0, 0, 0); // Zero outside radius
                 
-                // Adding pulse at time t0
-                /*if (t > 0.125) 
+                /*// Adding pulse at time t0
+                if (t > 0.125) 
                 {
                    V[i] += (0.1 * V[i]) * sin(10*pi*t-0.125);
                 }*/
-          //  }
-        //#};
+          }
+        #};
     }
     outlet
     {

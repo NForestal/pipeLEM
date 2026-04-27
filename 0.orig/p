@@ -22,32 +22,7 @@ boundaryField
 {
     inlet
     {
-	type            codedFixedValue;
-        value    uniform 0;
-        name            delayPulse;
-        codeInclude	#{
-            #include "fvCFD.H"
-            #include "IOstreams.H"
-            #include <cmath>
-        #};
-        code		#{
-            // Initialize the pressure field
-            operator==(scalarField(patch().size(), 0.0));
-            scalarField& p = *this;
-            
-            scalar t = this->db().time().value();		// Time
-            scalar pi = M_PI;
-            scalar p0 = 1.0e-6;
-            p = (t <= 1.0)? p0 : p0 * (1 + 0.2 * sin(2*pi*(t-1.0)));
-        #};
-        codeOptions	#{
-            -I$(LIB_SRC)/finiteVolume/lnInclude \
-            -I$(LIB_SRC)/meshTools/lnInclude
-        #};
-        codeLibs	#{
-            -lmeshTools \
-            -lfiniteVolume
-        #};
+	type            zeroGradient;
     }
     outlet
     {
